@@ -1,0 +1,91 @@
+{*
+Example for 4-20mA_R Click
+
+    Date          : Sep 2018.
+    Author        : Nenad Filipovic
+
+Test configuration STM32 :
+    
+    MCU              : STM32F107VCT6
+    Dev. Board       : EasyMx PRO v7 for STM32
+    ARM Compiler ver : v6.0.0.0
+
+---
+
+Description :
+
+The application is composed of three sections :
+
+- System Initialization - Initializes SPI and LOG structures,
+     set CS (chip select) and INT ( enable ) pin as output.
+- Application Initialization - Initialization driver enable's - SPI and start write log.
+- Application Task - (code snippet) This is a example which demonstrates the use of 4-20mA R Click board.
+     Read input 12-bit ADC value from the MCP3201 chip.
+     Results are being sent to the Usart Terminal where you can track their changes.
+     All data logs on usb uart for aproximetly every 100 ms when the ADC value changes.
+
+
+*}
+program Click_4-20mA_R_STM;
+
+uses Click_4-20mA_R_types, Click_4-20mA_R_config;
+
+var
+    logText : array[50] of char; 
+    valueADC : uint16_t; 
+    inputADC : real; 
+    valueADCOld : uint16_t; 
+    sensitivity : uint16_t; 
+    
+procedure systemInit(); 
+begin
+
+    mikrobus_gpioInit(_MIKROBUS1, _MIKROBUS_INT_PIN, _GPIO_OUTPUT); 
+    mikrobus_gpioInit(_MIKROBUS1, _MIKROBUS_RST_PIN, _GPIO_OUTPUT); 
+    mikrobus_spiInit(_MIKROBUS1, @_C420MAR_SPI_CFG[0]); 
+    mikrobus_logInit(_LOG_USBUART_A, 9600); 
+    Delay_100ms(); 
+
+end;
+
+procedure applicationInit(); 
+begin
+
+    c420mar_spiDriverInit(T_C420MAR_P(@_MIKROBUS1_GPIO), T_C420MAR_P(@_MIKROBUS1_SPI)); 
+    mikrobus_logWrite('     4-20mA R Click', _LOG_LINE); 
+    mikrobus_logWrite('------------------------', _LOG_LINE); 
+    Delay_100ms(); 
+
+end;
+
+procedure applicationTask(); 
+begin
+
+    valueADC := c420mar_getADCvalue(); 
+    inputADC := c420mar_convertADC(valueADC); 
+    if ((((valueADC - valueADCOld) > sensitivity) and ((valueADCOld - valueADC) > sensitivity))) then 
+    begin
+        mikrobus_logWrite(' Input ADC: ', _LOG_TEXT); 
+        FloatToStr(inputADC, logText); 
+        mikrobus_logWrite(logText, _LOG_TEXT); 
+        mikrobus_logWrite(' mA', _LOG_LINE); 
+        mikrobus_logWrite('------------------------', _LOG_LINE); 
+        valueADCOld := valueADC; 
+        Delay_100ms(); 
+    end; 
+    Delay_1sec(); 
+
+end;
+
+begin
+    valueADCOld := 0;
+    sensitivity := 10;
+
+    systemInit(); 
+    applicationInit(); 
+    while (1) do 
+    begin 
+        applicationTask(); 
+    end;
+
+end.
